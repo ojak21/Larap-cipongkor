@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>WebGIS LARAP Cipongkor - 12 Layer (2 Desa)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial, sans-serif;height:100vh;display:flex;flex-direction:column}
+.top{background:#1e2a5a;color:#fff;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.main{flex:1;display:flex;overflow:hidden}
+.left{width:300px;min-width:300px;background:#f8fafc;border-right:1px solid #ddd;padding:12px;overflow-y:auto}
+#map{flex:1;background:#e5e7eb}
+.right{width:360px;min-width:360px;background:#fff;border-left:2px solid #e2e8f0;padding:14px;overflow-y:auto}
+.row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px}
+.switch{width:42px;height:22px;background:#cbd5e1;border-radius:11px;position:relative;cursor:pointer;flex-shrink:0}
+.switch.on{background:#2563eb}
+.switch::after{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:3px;left:3px;transition:.2s}
+.switch.on::after{left:23px}
+.card{padding:10px;border-radius:8px;font-size:12px}
+.btn{width:100%;background:#2563eb;color:#fff;border:none;padding:12px;border-radius:8px;cursor:pointer;margin-top:10px;font-weight:bold}
+.btn2{width:100%;background:#0f172a;color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer;margin-top:8px}
+#detail{background:#f8fafc;padding:10px;border-radius:6px;min-height:110px;font-size:12px;line-height:1.5;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="top">
+<b>WebGIS LARAP Cipongkor - 12 Layer (2 Desa)</b>
+<span id="status">Loading...</span>
+</div>
+
+<div class="main">
+<div class="left">
+<b>Panel Layer - 12 File</b><br><small>Centang untuk tampil - klik bidang di peta</small>
+<div id="layerList" style="margin-top:10px"></div>
+<hr style="margin:12px 0">
+<div style="font-size:11px;line-height:1.8">
+<b>LEGENDA:</b><br>
+<span style="background:#22c55e;width:12px;height:12px;display:inline-block"></span> bidang_neglasari<br>
+<span style="background:#a3e635;width:12px;height:12px;display:inline-block"></span> bidang_sarinagen<br>
+<span style="background:#3b82f6;width:12px;height:12px;display:inline-block"></span> bbws_neglasari<br>
+<span style="background:#06b6d4;width:12px;height:12px;display:inline-block"></span> bbws_sarinagen<br>
+<span style="background:#ef4444;width:12px;height:12px;display:inline-block"></span> area_projek<br>
+<span style="background:#facc15;width:12px;height:12px;display:inline-block"></span> batas_desa<br>
+</div>
+<button class="btn2" onclick="fitToBidang()">🎯 Fokus ke 36 Bidang</button>
+<button class="btn2" onclick="fitToAll()">🌍 Lihat Semua Layer</button>
+</div>
+
+<div id="map"></div>
+
+<div class="right">
+<b>DETAIL BIDANG</b>
+<div id="detail">Klik bidang di peta...</div>
+<hr style="margin:12px 0">
+<b>📊 ANALISIS</b>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+<div class="card" style="background:#dcfce7"><small>Neglasari</small><br><b id="t-neglasari">- bd<br>- ha</b></div>
+<div class="card" style="background:#ecfccb"><small>Sarinagen</small><br><b id="t-sarinagen">- bd<br>- ha</b></div>
+<div class="card" style="background:#fef9c3"><small>Total LARAP</small><br><b id="t-dampak">- bd<br>- ha</b></div>
+<div class="card" style="background:#dbeafe"><small>BBWS Total</small><br><b id="t-bbws">- bd<br>- ha</b></div>
+</div>
+<button class="btn" onclick="window.print()">⬇ Ekspor PDF</button>
+<div style="font-size:10px;color:#64748b;margin-top:8px">Neglasari & Sarinagen sebrang-sebrangan. Kalau peta jadi dunia, klik "Fokus ke 36 Bidang".</div>
+</div>
+</div>
+
+<script>
+var map = L.map('map').setView([-6.934, 107.38], 15);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+  maxZoom:20
+}).addTo(map);
+
+var layerGroups = {};
+const STYLES = {
+ bidang_neglasari:{color:'#16a34a',fillColor:'#22c55e',weight:2,fillOpacity:0.65},
+ bidang_sarinagen:{color:'#65a30d',fillColor:'#a3e635',weight:2,fillOpacity:0.65},
+ bbws_neglasari:{color:'#1d4ed8',fillColor:'#3b82f6',weight:2,fillOpacity:0.5},
+ bbws_sarinagen:{color:'#0891b2',fillColor:'#06b6d4',weight:2,fillOpacity:0.5},
+ area_projek:{color:'#ef4444',fillColor:'#ef4444',weight:3,fillOpacity:0.12,dashArray:'8,6'},
+ batas_desa:{color:'#facc15',weight:4,fillOpacity:0,dashArray:'10,6'},
+ permukiman:{color:'#c084fc',fillColor:'#e879f9',weight:1,fillOpacity:0.5},
+ perkebunan:{color:'#eab308',fillColor:'#facc15',weight:1,fillOpacity:0.45},
+ bangunan_utama:{color:'#f97316',fillColor:'#fb923c',weight:2,fillOpacity:0.8},
+ bangunan_sekunder:{color:'#fb923c',fillColor:'#fdba74',weight:1,fillOpacity:0.6},
+ tn_neglasari:{color:'#9333ea',fillColor:'#a855f7',weight:2,fillOpacity:0.25,dashArray:'5,5'},
+ tn_sarinagen:{color:'#7e22ce',fillColor:'#a855f7',weight:2,fillOpacity:0.25,dashArray:'5,5'}
+};
+
+function fitToBidang(){
+  try{
+    let t=[];
+    if(layerGroups['bidang_neglasari']) t.push(layerGroups['bidang_neglasari']);
+    if(layerGroups['bidang_sarinagen']) t.push(layerGroups['bidang_sarinagen']);
+    if(layerGroups['bidang sarinagen']) t.push(layerGroups['bidang sarinagen']);
+    if(t.length>0) map.fitBounds(L.featureGroup(t).getBounds(),{padding:[30,30]});
+  }catch(e){}
+}
+function fitToAll(){
+  try{ map.fitBounds(L.featureGroup(Object.values(layerGroups)).getBounds(),{padding:[20,20]}); }catch(e){}
+}
+
+async function init(){
+  let r = await fetch('/api/list');
+  let files = await r.json();
+  document.getElementById('status').innerText = files.length + ' layer';
+  files.sort();
+
+  for(let fname of files){
+    try{
+      let res = await fetch('/api/'+ encodeURIComponent(fname));
+      let gj = await res.json();
+      if(!gj.features || gj.features.length===0) continue;
+
+      let key = fname.toLowerCase().replaceAll(' ','_');
+      let style = STYLES[key] || {color:'#22c55e',fillColor:'#22c55e',weight:2,fillOpacity:0.5};
+
+      let lg = L.geoJSON(gj, {
+        style: style,
+        onEachFeature: (f, ly)=>{
+          let p = f.properties||{};
+          let luas = p.LUAS_M2 || p.Luas || p._luas_m2 || 0;
+          let kode = p.Kode_Peta || p.KODE || p.kode || fname;
+          let nama = p.NAMA || p.Nama || '-';
+          let desa = fname.toLowerCase().includes('neglasari')? 'Neglasari' : fname.toLowerCase().includes('sarinagen')? 'Sarinagen' : '-';
+          ly.bindTooltip(`${kode} - ${fname}`);
+          ly.on('click',()=>{
+            document.getElementById('detail').innerHTML =
+              `KODE: ${kode}\nFile: ${fname}\nDesa: ${desa}\nPemilik: ${nama}\n\nLuas: ${parseFloat(luas).toFixed(2)} m²\n(${(parseFloat(luas)/10000).toFixed(4)} ha)\n\nKlik Ekspor PDF untuk cetak`;
+          });
+        }
+      }).addTo(map);
+
+      layerGroups[fname]=lg;
+
+      let list = document.getElementById('layerList');
+      let row = document.createElement('div'); row.className='row';
+      row.innerHTML = `<span style="flex:1;padding-right:8px">${fname.replaceAll('_',' ')} <b>(${gj.features.length})</b></span><div class="switch on"></div>`;
+      list.appendChild(row);
+      row.querySelector('.switch').onclick = function(){
+        this.classList.toggle('on');
+        if(this.classList.contains('on')) map.addLayer(layerGroups[fname]);
+        else map.removeLayer(layerGroups[fname]);
+      };
+    }catch(e){ console.log('GAGAL',fname,e); }
+  }
+
+  // STATS
+  try{
+    let s1 = await fetch('/api/stats/bidang_neglasari').then(r=>r.json()).catch(()=>({jumlah_bidang:21,total_ha:0}));
+    let s2 = await fetch('/api/stats/bidang_sarinagen').then(r=>r.json()).catch(async()=>{
+      return await fetch('/api/stats/bidang%20sarinagen').then(r=>r.json()).catch(()=>({jumlah_bidang:15,total_ha:0}));
+    });
+    let b1 = await fetch('/api/stats/bbws_neglasari').then(r=>r.json()).catch(()=>({jumlah_bidang:1,total_ha:0}));
+    let b2 = await fetch('/api/stats/bbws_sarinagen').then(r=>r.json()).catch(()=>({jumlah_bidang:1,total_ha:0}));
+
+    document.getElementById('t-neglasari').innerHTML = `${s1.jumlah_bidang} bd<br>${s1.total_ha} ha`;
+    document.getElementById('t-sarinagen').innerHTML = `${s2.jumlah_bidang} bd<br>${s2.total_ha} ha`;
+    document.getElementById('t-dampak').innerHTML = `${s1.jumlah_bidang + s2.jumlah_bidang} bd<br>${(parseFloat(s1.total_ha)+parseFloat(s2.total_ha)).toFixed(4)} ha`;
+    document.getElementById('t-bbws').innerHTML = `${b1.jumlah_bidang + b2.jumlah_bidang} bd<br>${(parseFloat(b1.total_ha)+parseFloat(b2.total_ha)).toFixed(4)} ha`;
+
+    // AUTO FOKUS KE BIDANG SAJA, BUKAN KE DUNIA
+    setTimeout(fitToBidang, 600);
+  }catch(e){ console.log(e); }
+}
+init();
+</script>
+</body>
+</html>

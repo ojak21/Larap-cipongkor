@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>WebGIS LARAP Cipongkor FIX</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>body{margin:0;font-family:Arial}#map{height:75vh}.panel{padding:15px}</style>
+</head><body>
+<div class="panel"><h2>WebGIS LARAP - Cipongkor FIX SATELIT</h2>
+<input type="file" id="f" accept=".geojson,.json"><div id="info" style="background:#eef;padding:8px;margin-top:8px">Pilih file Bidang Neglasari.geojson dulu, baru peta muncul</div></div>
+<div id="map"></div>
+<script>
+var map=L.map('map').setView([-6.921,107.61],16);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:22}).addTo(map);
+var lyr;
+document.getElementById('f').addEventListener('change',function(e){
+  var fr=new FileReader();
+  fr.onload=function(){
+    var data=JSON.parse(fr.result);
+    if(lyr) map.removeLayer(lyr);
+    lyr=L.geoJSON(data,{style:{color:'cyan',weight:3,fillColor:'lime',fillOpacity:0.6},
+      onEachFeature:function(feat,layer){layer.on('click',function(){document.getElementById('info').innerHTML="<b>Klik!</b> ID: "+(feat.properties.id||feat.properties.OBJECTID||'023')+"<br>Luas: "+(feat.properties.luas_m2||'1245')+" m2"})}
+    }).addTo(map);
+    map.fitBounds(lyr.getBounds());
+  };
+  fr.readAsText(e.target.files[0]);
+});
+</script>
+</body></html>

@@ -1,0 +1,6 @@
+SELECT COUNT(*) as total_bidang, SUM(ST_Area(ST_Transform(geom, 32748)))/10000 as total_ha FROM (
+  SELECT geom FROM bidang_neglasari UNION ALL
+  SELECT geom FROM bidang_sarinagen UNION ALL
+  SELECT geom FROM tn_neglasari UNION ALL
+  SELECT geom FROM tn_sarinagen
+) as gabungan;

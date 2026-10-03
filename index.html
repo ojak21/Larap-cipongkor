@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LARAP Cipongkor - GitHub Pages</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial;height:100vh;display:flex;flex-direction:column}
+.top{background:#1e2a5a;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+.main{flex:1;display:flex;overflow:hidden}
+.left{width:290px;background:#f8fafc;border-right:1px solid #ddd;padding:10px;overflow:auto}
+#map{flex:1}
+.right{width:380px;background:#fff;border-left:2px solid #e2e8f0;padding:12px;overflow:auto}
+.row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px}
+.card{padding:8px;border-radius:8px;font-size:12px}
+input.search{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;margin:8px 0}
+table.detail{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+table.detail td{padding:5px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+table.detail td:first-child{font-weight:bold;color:#475569;width:35%}
+</style>
+</head>
+<body>
+<div class="top"><b>WebGIS LARAP Cipongkor - 36 Bidang (GitHub)</b><span id="status">Loading...</span></div>
+<div class="main">
+<div class="left">
+<input class="search" id="searchBox" placeholder="Cari Kode Peta / Nama Pemilik...">
+<div id="list"></div>
+<hr><b>Analisis</b>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+<div class="card" style="background:#dcfce7"><small>Neglasari</small><br><b id="s-ngl">- bd<br>- ha</b></div>
+<div class="card" style="background:#ecfccb"><small>Sarinagen</small><br><b id="s-srg">- bd<br>- ha</b></div>
+<div class="card" style="background:#fef9c3"><small>Total</small><br><b id="s-all">- bd<br>- ha</b></div>
+</div>
+</div>
+<div id="map"></div>
+<div class="right">
+<b>DETAIL BIDANG</b><small> (klik bidang di peta)</small>
+<div id="detail" style="margin-top:10px;color:#64748b;font-size:12px">Belum ada bidang dipilih. Klik salah satu bidang hijau di peta. Semua field dari GeoJSON akan muncul disini, jadi gak berat pas loading awal.</div>
+</div>
+</div>
+<script>
+var map=L.map('map').setView([-6.934,107.38],16);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20}).addTo(map);
+var groups={}, allFeatures=[];
+const FILES=[
+ {name:'bidang_neglasari',color:'#16a34a',fill:'#22c55e'},
+ {name:'bidang_sarinagen',color:'#65a30d',fill:'#a3e635'},
+ {name:'bbws_neglasari',color:'#1d4ed8',fill:'#3b82f6'},
+ {name:'bbws_sarinagen',color:'#0891b2',fill:'#06b6d4'},
+ {name:'area_projek',color:'#ef4444',fill:'#ef4444',dash:'8,6',fillOp:0.1},
+ {name:'batas_desa',color:'#facc15',fill:'transparent',weight:4,dash:'10,6',fillOp:0},
+ {name:'permukiman',color:'#c084fc',fill:'#e879f9'},
+ {name:'perkebunan',color:'#eab308',fill:'#facc15'},
+ {name:'bangunan_utama',color:'#f97316',fill:'#fb923c'},
+ {name:'bangunan_sekunder',color:'#fb923c',fill:'#fdba74'},
+ {name:'tn_neglasari',color:'#9333ea',fill:'#a855f7',dash:'5,5',fillOp:0.2},
+ {name:'tn_sarinagen',color:'#7e22ce',fill:'#a855f7',dash:'5,5',fillOp:0.2}
+];
+function showDetail(props, fname){
+  let html=`<div style="font-size:11px;color:#64748b">File: ${fname}</div><table class="detail">`;
+  for(let k in props){
+    if(k.startsWith('_')) continue;
+    let v=props[k];
+    if(v===null||v==='') v='-';
+    html+=`<tr><td>${k}</td><td>${v}</td></tr>`;
+  }
+  html+='</table>';
+  document.getElementById('detail').innerHTML=html;
+}
+async function init(){
+ let totalNGL=0,totalSRG=0,cNGL=0,cSRG=0;
+ for(let f of FILES){
+  try{
+   let res=await fetch('wgs/'+f.name+'.geojson');
+   if(!res.ok) continue;
+   let gj=await res.json();
+   let lg=L.geoJSON(gj,{
+    style:{color:f.color,fillColor:f.fill,weight:f.weight||2,fillOpacity:f.fillOp!=undefined?f.fillOp:0.55,dashArray:f.dash||null},
+    onEachFeature:(feat,ly)=>{
+      let p=feat.properties||{};
+      let kode=p.Kode_Peta||p.KODE||p.kode||p.Kode||'-';
+      let nama=p.NAMA||p.Nama||p.Pemilik||'-';
+      let luas=p.LUAS_M2||p.Luas||p._luas_m2||0;
+      allFeatures.push({kode:kode.toString().toLowerCase(),nama:nama.toString().toLowerCase(),layer:ly,props:p,fname:f.name});
+      ly.bindTooltip(`${kode} - ${nama}`);
+      ly.on('click',()=>{showDetail(p,f.name);});
+      // hitung luas
+      if(f.name==='bidang_neglasari'){cNGL++; totalNGL+=parseFloat(luas)||0;}
+      if(f.name==='bidang_sarinagen'){cSRG++; totalSRG+=parseFloat(luas)||0;}
+    }
+   }).addTo(map);
+   groups[f.name]=lg;
+   let row=document.createElement('div');row.className='row';
+   row.innerHTML=`<span>${f.name.replaceAll('_',' ')} (${gj.features.length})</span><input type="checkbox" checked>`;
+   document.getElementById('list').appendChild(row);
+   row.querySelector('input').onchange=e=>{ if(e.target.checked) map.addLayer(lg); else map.removeLayer(lg); };
+  }catch(e){console.log('skip',f.name)}
+ }
+ document.getElementById('s-ngl').innerHTML=`${cNGL} bd<br>${(totalNGL/10000).toFixed(4)} ha`;
+ document.getElementById('s-srg').innerHTML=`${cSRG} bd<br>${(totalSRG/10000).toFixed(4)} ha`;
+ document.getElementById('s-all').innerHTML=`${cNGL+cSRG} bd<br>${((totalNGL+totalSRG)/10000).toFixed(4)} ha`;
+ document.getElementById('status').innerText=`${cNGL+cSRG} bidang loaded`;
+ try{map.fitBounds(L.featureGroup([groups['bidang_neglasari'],groups['bidang_sarinagen']]).getBounds(),{padding:[20,20]});}catch(e){}
+ // search
+ document.getElementById('searchBox').addEventListener('input',function(){
+   let q=this.value.toLowerCase(); if(q.length<2) return;
+   let found=allFeatures.find(x=>x.kode.includes(q)||x.nama.includes(q));
+   if(found){map.fitBounds(found.layer.getBounds(),{maxZoom:19}); found.layer.fire('click'); showDetail(found.props,found.fname);}
+ });
+}
+init();
+</script>
+</body>
+</html>

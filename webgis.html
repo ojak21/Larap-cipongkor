@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WebGIS LARAP Pemula</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+body{margin:0;font-family:Arial}
+#map{height:70vh}
+.panel{padding:15px}
+button{background:blue;color:white;padding:12px;border:none;border-radius:8px;width:100%;font-size:16px}
+</style>
+</head>
+<body>
+<div class="panel">
+<h2>WebGIS LARAP - Cipongkor</h2>
+<p>1. Klik tombol bawah, pilih file bidang.geojson kamu</p>
+<input type="file" id="file" accept=".geojson,.json" style="margin:10px 0">
+<div id="info" style="background:#eef;padding:10px;border-radius:8px">Belum ada bidang dipilih. Klik bidang di peta nanti.</div>
+</div>
+<div id="map"></div>
+
+<script>
+var map = L.map('map').setView([-6.92, 107.6], 14);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 20})
+
+document.getElementById('file').addEventListener('change', function(e){
+  var file = e.target.files[0];
+  var reader = new FileReader();
+  reader.onload = function(){
+    var data = JSON.parse(reader.result);
+    if(layerBidang) map.removeLayer(layerBidang);
+    layerBidang = L.geoJSON(data, {
+      style:{color:'blue', weight:2, fillColor:'green', fillOpacity:0.5},
+      onEachFeature:function(feature, layer){
+        layer.on('click', function(){
+          var p = feature.properties;
+          var luas = p.luas_m2 || p.LUAS || p.area || '1245';
+          var desa = p.desa || p.DESA || 'Neglasari';
+          document.getElementById('info').innerHTML =
+            "<b>BIDANG "+(p.id||'023')+"</b><br>Luas: "+luas+" m2<br>Desa: "+desa+"<br>Status: Terdampak";
+        });
+      }
+    }).addTo(map);
+    map.fitBounds(layerBidang.getBounds());
+  };
+  reader.readAsText(file);
+});
+</script>
+</body>
+</html>

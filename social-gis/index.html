@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SOCIAL GIS / LARAP</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+<div class="brand"><div class="logo">🌍</div><div><b>SOCIAL GIS</b><br><small>LARAP Dashboard</small></div></div>
+<div class="menu-title">TEMA PETA</div>
+<button class="theme-btn active" data-theme="SEMUA" onclick="app.setTheme('SEMUA')">🔎 SEMUA</button>
+<button class="theme-btn" data-theme="BASEMAP" onclick="app.setTheme('BASEMAP')">🗺️ BASEMAP</button>
+<button class="theme-btn" data-theme="SOSIAL" onclick="app.setTheme('SOSIAL')">👥 SOSIAL</button>
+<button class="theme-btn" data-theme="LAHAN" onclick="app.setTheme('LAHAN')">📐 LAHAN</button>
+<button class="theme-btn" data-theme="DAMPAK" onclick="app.setTheme('DAMPAK')">⚠️ DAMPAK</button>
+<button class="theme-btn" data-theme="KONFLIK" onclick="app.setTheme('KONFLIK')">🚩 KONFLIK</button>
+<button class="theme-btn" data-theme="PROYEK" onclick="app.setTheme('PROYEK')">🏗️ PROYEK</button>
+<div class="menu-title">FILTER DINAMIS</div>
+<label>Desa</label><select id="f-desa"><option value="all">Semua Desa</option></select>
+<label>Status Lahan</label><select id="f-status"><option value="all">Semua Status</option></select>
+<label>Cari Bidang / Pemilik</label><input id="f-search" placeholder="B001 atau Budi...">
+<button class="btn small" onclick="app.resetFilters()">Reset Filter</button>
+<div class="hint">Ganti file di /data/*.geojson dengan export QGIS/QField kamu. Pastikan field ada: id_bidang, pemilik, luas_m2, desa, status_lahan</div>
+</aside>
+<main class="main">
+<div class="top-stats" id="top-stats"></div>
+<div class="map-wrap"><div id="map"></div><div class="legend" id="legend"></div></div>
+<div class="charts"><canvas id="chartDesa"></canvas><canvas id="chartStatus"></canvas></div>
+</main>
+</div>
+<script src="js/map.js"></script><script src="js/layers.js"></script>
+<script src="js/statistics.js"></script><script src="js/filters.js"></script><script src="js/app.js"></script>
+</body></html>
