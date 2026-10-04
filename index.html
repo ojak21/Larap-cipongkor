@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LARAP Cipongkor - Filter Grup</title>
+<title>LARAP Cipongkor - Filter Grup + Bangunan SRG</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -35,28 +35,29 @@ table.detail td:first-child{font-weight:bold;width:38%;color:#475569}
 </style>
 </head>
 <body>
-<div class="top"><b>LARAP Cipongkor - Filter Grup Otomatis</b><span id="status">Loading...</span></div>
+<div class="top"><b>LARAP Cipongkor - Bangunan Sekunder SRG + NGL</b><span id="status">Loading...</span></div>
 <div class="main">
 <div class="left">
 <input class="search" id="searchBox" placeholder="Cari Kode / Nama / NIB...">
-<div class="hint">💡 Klik judul grup (misal: PEMILIKAN LAHAN) → peta hanya menampilkan grup itu, grup lain otomatis sembunyi. Klik SEMUA untuk tampilkan semua lagi.</div>
+<div class="hint">💡 Klik judul grup = filter peta otomatis. Sekarang Bangunan Terdampak ada NGL + SRG.</div>
 <div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0">
 <button class="btn active" id="btn-all" onclick="showAll()">SEMUA</button>
 <button class="btn" onclick="showNGL()">Hanya NGL</button>
 <button class="btn" onclick="showSRG()">Hanya SRG</button>
 </div>
 <div id="list"></div>
-<hr><b style="font-size:12px">Analisis Luas</b>
+<hr><b style="font-size:12px">Analisis</b>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
 <div class="card" style="background:#dcfce7"><small>Neglasari</small><br><b id="s-ngl">0 bd<br>0 ha</b></div>
 <div class="card" style="background:#ecfccb"><small>Sarinagen</small><br><b id="s-srg">0 bd<br>0 ha</b></div>
 <div class="card" style="background:#fef9c3;grid-column:span 2"><small>Total</small><br><b id="s-all">0 bd<br>0 ha</b></div>
+<div class="card" style="background:#fee2e2;grid-column:span 2"><small>Bangunan Terdampak</small><br><b id="s-bgn">0 bgn</b></div>
 </div>
 </div>
 <div id="map"></div>
 <div class="right">
-<b>DETAIL BIDANG</b>
-<div id="detail" style="margin-top:10px;color:#64748b;font-size:12px">Klik judul grup di kiri untuk filter peta...</div>
+<b>DETAIL BIDANG / BANGUNAN</b>
+<div id="detail" style="margin-top:10px;color:#64748b;font-size:12px">Klik bidang / bangunan di peta...</div>
 </div>
 </div>
 <script>
@@ -76,8 +77,11 @@ const FILES = [
   {file:'pertanian_srg', label:'pertanian_srg', group:'penggunaan_lahan', color:'#16a34a', fill:'#4ade80', fillOp:0.75},
   {file:'perkebunan', label:'perkebunan', group:'penggunaan_lahan', color:'#a16207', fill:'#fbbf24', fillOp:0.7},
   {file:'permukiman', label:'permukiman', group:'penggunaan_lahan', color:'#9333ea', fill:'#e9d5ff', fillOp:0.7},
+  // BANGUNAN TERDAMPAK - SEKARANG ADA NGL + SRG
   {file:'bangunan_utama', label:'bangunan_utama', group:'bangunan_terdampak', color:'#be123c', fill:'#fb7185', fillOp:0.9},
   {file:'bangunan_sekunder_ngl', label:'bangunan_sekunder_ngl', group:'bangunan_terdampak', color:'#881337', fill:'#fda4af', fillOp:0.85},
+  {file:'bangunan_sekunder_srg', label:'bangunan_sekunder_srg', group:'bangunan_terdampak', color:'#881337', fill:'#fda4af', fillOp:0.85},
+  // PEMILIKAN
   {file:'shm_ngl', label:'shm_ngl', group:'pemilikan_lahan', color:'#15803d', fill:'#22c55e', fillOp:0.75, isBidang:true, desa:'NGL'},
   {file:'shm_srg', label:'shm_srg', group:'pemilikan_lahan', color:'#65a30d', fill:'#a3e635', fillOp:0.75, isBidang:true, desa:'SRG'},
   {file:'sppt_pbb_ngl', label:'sppt_pbb_ngl', group:'pemilikan_lahan', color:'#5b21b6', fill:'#a78bfa', fillOp:0.6, isBidang:true, desa:'NGL'},
@@ -91,7 +95,7 @@ const GROUP_LABELS = {
   'tanah_negara':'Tanah Negara',
   'bbws':'BBWS',
   'penggunaan_lahan':'Penggunaan Lahan & Fasum',
-  'bangunan_terdampak':'Bangunan Terdampak',
+  'bangunan_terdampak':'Bangunan Terdampak (NGL + SRG)',
   'pemilikan_lahan':'Pemilikan Lahan'
 };
 
@@ -124,49 +128,29 @@ function showDetail(p,fname,area){
   document.getElementById('detail').innerHTML=html;
 }
 
-// FILTER LOGIC - INI INTINYA
 function filterByGroup(groupName){
-  // kalau klik grup yang sama lagi -> tampilkan semua
-  if(activeGroup===groupName){
-    showAll();
-    return;
-  }
+  if(activeGroup===groupName){ showAll(); return; }
   activeGroup=groupName;
-  // update UI grup aktif
   document.querySelectorAll('.group').forEach(g=>{g.classList.remove('active');});
   document.getElementById('g-'+groupName)?.classList.add('active');
   document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
-  
-  // sembunyikan semua layer
-  Object.entries(layerStore).forEach(([label, layer])=>{
-    map.removeLayer(layer);
-  });
-  // tampilkan hanya yang grupnya sesuai
+  Object.entries(layerStore).forEach(([label, layer])=>{ map.removeLayer(layer); });
   let shownLayers=[];
   Object.entries(layerStore).forEach(([label, layer])=>{
-    // cari def dari FILES
     let def = FILES.find(f=>f.label===label);
-    if(def && def.group===groupName){
-      map.addLayer(layer);
-      shownLayers.push(layer);
-    }
+    if(def && def.group===groupName){ map.addLayer(layer); shownLayers.push(layer); }
   });
-  // update checkbox
   document.querySelectorAll('.row').forEach(row=>{
     let def = FILES.find(f=>f.label===row.dataset.label);
     let chk=row.querySelector('input');
     if(def && def.group===groupName){ chk.checked=true; row.style.opacity='1'; }
     else { chk.checked=false; row.style.opacity='0.3'; }
   });
-  // zoom ke grup tersebut
   let groupBounds = L.featureGroup(shownLayers);
-  if(shownLayers.length>0){
-    try{ map.fitBounds(groupBounds.getBounds(),{padding:[30,30],maxZoom:18}); }catch{}
-  }
+  if(shownLayers.length>0){ try{ map.fitBounds(groupBounds.getBounds(),{padding:[30,30],maxZoom:18}); }catch{} }
   document.getElementById('status').innerText=`Filter: ${GROUP_LABELS[groupName]} (${shownLayers.length} layer)`;
-  document.getElementById('detail').innerHTML=`<div style="padding:8px;background:#dbeafe;border-radius:8px;font-size:12px">🔍 Filter aktif: <b>${GROUP_LABELS[groupName]}</b><br>Menampilkan ${shownLayers.length} layer. Klik SEMUA untuk tampilkan semua lagi.<br><small>Grup lain otomatis tersembunyi</small></div>`;
+  document.getElementById('detail').innerHTML=`<div style="padding:8px;background:#dbeafe;border-radius:8px;font-size:12px">🔍 Filter aktif: <b>${GROUP_LABELS[groupName]}</b><br>Menampilkan ${shownLayers.length} layer. Klik SEMUA untuk tampilkan semua lagi.</div>`;
 }
-
 function showAll(){
   activeGroup=null;
   document.querySelectorAll('.group').forEach(g=>g.classList.remove('active'));
@@ -176,7 +160,6 @@ function showAll(){
   document.querySelectorAll('.row').forEach(row=>{row.querySelector('input').checked=true; row.style.opacity='1';});
   if(boundsGroup.getLayers().length>0){try{map.fitBounds(boundsGroup.getBounds(),{padding:[30,30]})}catch{}}
   document.getElementById('status').innerText=`${Object.keys(layerStore).length} layer - Semua tampil`;
-  document.getElementById('detail').innerHTML=`<div style="padding:8px;background:#fef9c3;border-radius:8px;font-size:12px">Menampilkan semua layer (17 file). Klik judul grup di kiri untuk filter.</div>`;
 }
 function showNGL(){ 
   activeGroup='ngl';
@@ -196,21 +179,19 @@ async function init(){
     let div=document.createElement('div'); div.className='group'; div.id='g-'+g;
     div.innerHTML=`<div class="group-head"><div class="title" data-group="${g}">📁 ${GROUP_LABELS[g]||g} <small style="font-weight:normal;opacity:0.7" id="count-${g}"></small></div><div class="arrow" data-group="${g}">▼</div></div><div class="group-body" id="body-${g}"></div>`;
     document.getElementById('list').appendChild(div);
-    // klik judul = FILTER
     div.querySelector('.title').onclick=()=>{ filterByGroup(g); };
-    // klik panah = collapse
     div.querySelector('.arrow').onclick=(e)=>{ e.stopPropagation(); let body=document.getElementById('body-'+g); let arrow=e.target; if(body.style.display==='none'){body.style.display='block'; arrow.textContent='▼';} else {body.style.display='none'; arrow.textContent='▶';} };
   });
 
-  let cNGL=0,cSRG=0,totalNGL=0,totalSRG=0,loaded=0;
+  let cNGL=0,cSRG=0,totalNGL=0,totalSRG=0,loaded=0,cBgn=0;
   for(let def of FILES){
     try{
-      let res=await fetch('wgs/'+def.file+'.geojson'); if(!res.ok) continue;
+      let res=await fetch('wgs/'+def.file+'.geojson'); if(!res.ok){ console.warn('SKIP tidak ada:',def.file); continue; }
       let gj=await res.json();
       let lg=L.geoJSON(gj,{
         style:{color:def.color,fillColor:def.fill,weight:def.weight||2,fillOpacity:def.fillOp,dashArray:def.dash||null},
         onEachFeature:(feat,ly)=>{
-          let p=feat.properties||{}; let kode=p.Kode_Peta||p.KODE||p.kode||p.NIB||'-'; let nama=p.NAMA||p.Nama||p.PEMILIK||p.Pemilik||'-';
+          let p=feat.properties||{}; let kode=p.Kode_Peta||p.KODE||p.kode||p.NIB||p.ID||'-'; let nama=p.NAMA||p.Nama||p.PEMILIK||p.Pemilik||'-';
           let luasProp=getLuasFromProps(p); let luasCalc=getLayerArea(ly); let luasFinal=luasProp&&luasProp>0?luasProp:luasCalc; if(luasFinal===0) luasFinal=luasCalc;
           ly._luasM2=luasFinal;
           allFeatures.push({kode:kode.toString().toLowerCase(),nama:nama.toString().toLowerCase(),layer:ly,props:p,fname:def.label,luas:luasFinal,group:def.group});
@@ -218,6 +199,7 @@ async function init(){
           ly.on('click',()=>{showDetail(p,def.label,luasFinal);});
           boundsGroup.addLayer(ly);
           if(def.desa==='NGL'){cNGL++;totalNGL+=luasFinal;} else if(def.desa==='SRG'){cSRG++;totalSRG+=luasFinal;}
+          if(def.group==='bangunan_terdampak') cBgn++;
         }
       }).addTo(map);
       layerStore[def.label]=lg;
@@ -227,16 +209,16 @@ async function init(){
       let row=document.createElement('div');row.className='row';row.dataset.label=def.label;
       row.innerHTML=`<div style="display:flex;align-items:center;flex:1"><span class="dot" style="background:${def.fill};border-color:${def.color}"></span><span>${def.label} <small style="color:#64748b">(${gj.features?.length||0})</small></span></div><input type="checkbox" checked>`;
       body.appendChild(row);
-      row.onclick=(e)=>{if(e.target.tagName==='INPUT')return; document.querySelectorAll('.row').forEach(r=>r.classList.remove('active')); row.classList.add('active'); try{map.fitBounds(lg.getBounds(),{maxZoom:19,padding:[30,30]})}catch{}; if(gj.features[0]){let p=gj.features[0].properties; let ly=lg.getLayers()[0]; let area=ly?._luasM2||getLayerArea(ly)||0; showDetail(p,def.label,area);} };
+      row.onclick=(e)=>{if(e.target.tagName==='INPUT')return; document.querySelectorAll('.row').forEach(r=>r.classList.remove('active')); row.classList.add('active'); try{map.fitBounds(lg.getBounds(),{maxZoom:19,padding:[30,30]})}catch{}; };
       row.querySelector('input').onchange=(e)=>{e.stopPropagation(); if(e.target.checked) map.addLayer(lg); else map.removeLayer(lg);};
     }catch(e){console.log('error',def.file,e);}
   }
-  // update count per grup
   GROUP_ORDER.forEach(g=>{ let count=groupStore[g]?.length||0; let el=document.getElementById('count-'+g); if(el) el.textContent=`(${count})`; });
   document.getElementById('s-ngl').innerHTML=`${cNGL} bd<br>${(totalNGL/10000).toFixed(4)} ha`;
   document.getElementById('s-srg').innerHTML=`${cSRG} bd<br>${(totalSRG/10000).toFixed(4)} ha`;
   document.getElementById('s-all').innerHTML=`${cNGL+cSRG} bd<br>${((totalNGL+totalSRG)/10000).toFixed(4)} ha`;
-  document.getElementById('status').innerText=`${loaded} layer - Klik judul grup untuk filter`;
+  document.getElementById('s-bgn').innerHTML=`${cBgn} bangunan terdampak`;
+  document.getElementById('status').innerText=`${loaded} layer - termasuk bangunan_sekunder_srg`;
   if(boundsGroup.getLayers().length>0){try{map.fitBounds(boundsGroup.getBounds(),{padding:[30,30]})}catch{}}
   document.getElementById('searchBox').addEventListener('input',function(){let q=this.value.toLowerCase().trim();if(q.length<2)return;let f=allFeatures.find(x=>x.kode.includes(q)||x.nama.includes(q));if(f){map.fitBounds(f.layer.getBounds(),{maxZoom:19,padding:[50,50]});f.layer.fire('click');}});
 }
