@@ -7,107 +7,179 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial;height:100vh;display:flex;flex-direction:column}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;height:100vh;display:flex;flex-direction:column}
 .top{background:#1e2a5a;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+.top b{font-size:14px}
 .main{flex:1;display:flex;overflow:hidden}
-.left{width:290px;background:#f8fafc;border-right:1px solid #ddd;padding:10px;overflow:auto}
-#map{flex:1}
+.left{width:320px;background:#f8fafc;border-right:1px solid #ddd;padding:10px;overflow:auto}
+#map{flex:1;background:#e5e7eb}
 .right{width:380px;background:#fff;border-left:2px solid #e2e8f0;padding:12px;overflow:auto}
-.row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px}
-.card{padding:8px;border-radius:8px;font-size:12px}
-input.search{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;margin:8px 0}
+.group{margin-bottom:12px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+.group-head{background:#f1f5f9;padding:8px 10px;font-weight:bold;font-size:11px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.group-body{padding:6px 10px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f8fafc;font-size:12px}
+.row:last-child{border:none}
+.dot{width:12px;height:12px;border-radius:2px;display:inline-block;margin-right:6px;border:1px solid #00000020;vertical-align:middle}
+.card{padding:8px;border-radius:8px;font-size:12px;text-align:center}
+input.search{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;margin:8px 0}
 table.detail{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
-table.detail td{padding:5px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}
-table.detail td:first-child{font-weight:bold;color:#475569;width:35%}
+table.detail td{padding:5px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top;word-break:break-word}
+table.detail td:first-child{font-weight:bold;color:#475569;width:38%}
+.badge{font-size:10px;background:#e2e8f0;padding:2px 6px;border-radius:10px}
 </style>
 </head>
 <body>
 <div class="top"><b>WebGIS LARAP Cipongkor - 36 Bidang (GitHub)</b><span id="status">Loading...</span></div>
 <div class="main">
 <div class="left">
-<input class="search" id="searchBox" placeholder="Cari Kode Peta / Nama Pemilik...">
+<input class="search" id="searchBox" placeholder="Cari Kode Peta / Nama Pemilik... (min 2 huruf)">
 <div id="list"></div>
-<hr><b>Analisis</b>
+<hr><b style="font-size:12px">Analisis</b>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
 <div class="card" style="background:#dcfce7"><small>Neglasari</small><br><b id="s-ngl">- bd<br>- ha</b></div>
 <div class="card" style="background:#ecfccb"><small>Sarinagen</small><br><b id="s-srg">- bd<br>- ha</b></div>
-<div class="card" style="background:#fef9c3"><small>Total</small><br><b id="s-all">- bd<br>- ha</b></div>
+<div class="card" style="background:#fef9c3;grid-column:span 2"><small>Total</small><br><b id="s-all">- bd<br>- ha</b></div>
 </div>
 </div>
 <div id="map"></div>
 <div class="right">
 <b>DETAIL BIDANG</b><small> (klik bidang di peta)</small>
-<div id="detail" style="margin-top:10px;color:#64748b;font-size:12px">Belum ada bidang dipilih. Klik salah satu bidang hijau di peta. Semua field dari GeoJSON akan muncul disini, jadi gak berat pas loading awal.</div>
+<div id="detail" style="margin-top:10px;color:#64748b;font-size:12px">Belum ada bidang dipilih. Klik salah satu bidang di peta. Panel ini akan nampilin semua field GeoJSON.</div>
 </div>
 </div>
 <script>
 var map=L.map('map').setView([-6.934,107.38],16);
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20}).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20, attribution:'Esri'}).addTo(map);
+
 var groups={}, allFeatures=[];
-const FILES=[
- {name:'bidang_neglasari',color:'#16a34a',fill:'#22c55e'},
- {name:'bidang_sarinagen',color:'#65a30d',fill:'#a3e635'},
- {name:'bbws_neglasari',color:'#1d4ed8',fill:'#3b82f6'},
- {name:'bbws_sarinagen',color:'#0891b2',fill:'#06b6d4'},
- {name:'area_projek',color:'#ef4444',fill:'#ef4444',dash:'8,6',fillOp:0.1},
- {name:'batas_desa',color:'#facc15',fill:'transparent',weight:4,dash:'10,6',fillOp:0},
- {name:'permukiman',color:'#c084fc',fill:'#e879f9'},
- {name:'perkebunan',color:'#eab308',fill:'#facc15'},
- {name:'bangunan_utama',color:'#f97316',fill:'#fb923c'},
- {name:'bangunan_sekunder',color:'#fb923c',fill:'#fdba74'},
- {name:'tn_neglasari',color:'#9333ea',fill:'#a855f7',dash:'5,5',fillOp:0.2},
- {name:'tn_sarinagen',color:'#7e22ce',fill:'#a855f7',dash:'5,5',fillOp:0.2}
+var boundsGroup = L.featureGroup();
+
+// DEFINISI FILE = PERSIS FOTO QGIS KAMU
+const LAYER_DEFS = [
+  // AREA PROYEK - kayak foto paling atas
+  { file:'area_projek', label:'area_proyek_cilanang', group:'area_proyek', color:'#ef4444', fill:'#ef4444', dash:'8,6', fillOp:0.05, weight:3 },
+  { file:'batas_desa', label:'batas_administrasi', group:'area_proyek', color:'#facc15', fill:'transparent', weight:4, dash:'10,6', fillOp:0 },
+
+  // TANAH NEGARA
+  { file:'tn_sarinagen', label:'tanah_negara_srg', group:'tanah_negara', color:'#9333ea', fill:'#ffeb3b', dash:'5,5', fillOp:0.6 },
+  { file:'tn_neglasari', label:'tanah_negara_ngl', group:'tanah_negara', color:'#7e22ce', fill:'#ffeb3b', dash:'5,5', fillOp:0.6 },
+
+  // BBWS
+  { file:'bbws_neglasari', label:'bbws_ngl', group:'bbws', color:'#1d4ed8', fill:'#ffeb3b', fillOp:0.6 },
+  { file:'bbws_sarinagen', label:'bbws_srg', group:'bbws', color:'#0891b2', fill:'#ffeb3b', fillOp:0.6 },
+
+  // PENGGUNAAN LAHAN DAN FASILITAS UMUM
+  { file:'bidang_neglasari', label:'pertanian_ngl', group:'penggunaan_lahan_dan_fasilitas_umum', color:'#16a34a', fill:'#22c55e', isBidang:true, desa:'NGL' },
+  { file:'bidang_sarinagen', label:'pertanian_srg', group:'penggunaan_lahan_dan_fasilitas_umum', color:'#65a30d', fill:'#84cc16', isBidang:true, desa:'SRG' },
+  { file:'perkebunan', label:'perkebunan', group:'penggunaan_lahan_dan_fasilitas_umum', color:'#a16207', fill:'#eab308' },
+  { file:'permukiman', label:'permukiman', group:'penggunaan_lahan_dan_fasilitas_umum', color:'#c084fc', fill:'#f5d0fe' },
+
+  // BANGUNAN TERDAMPAK
+  { file:'bangunan_utama', label:'bangunan_utama', group:'bangunan_terdampak', color:'#f97316', fill:'#fb923c' },
+  { file:'bangunan_sekunder', label:'bangunan_sekunder_srg', group:'bangunan_terdampak', color:'#fb923c', fill:'#fdba74' },
+  // kalau ada file ngl terpisah, duplikat aja
+  { file:'bangunan_sekunder', label:'bangunan_sekunder_ngl', group:'bangunan_terdampak', color:'#ea580c', fill:'#fed7aa', alt:true }
 ];
+
+const GROUP_ORDER = ['area_proyek','tanah_negara','bbws','penggunaan_lahan_dan_fasilitas_umum','bangunan_terdampak','pemilikan_dan_penguasaan_lahan'];
+const GROUP_LABEL = {
+  'area_proyek':'area_proyek_cilanang + batas',
+  'tanah_negara':'tanah_negara',
+  'bbws':'bbws',
+  'penggunaan_lahan_dan_fasilitas_umum':'penggunaan_lahan_dan_fasilitas_umum',
+  'bangunan_terdampak':'bangunan_terdampak',
+  'pemilikan_dan_penguasaan_lahan':'pemilikan_dan_penguasaan_lahan'
+};
+
 function showDetail(props, fname){
-  let html=`<div style="font-size:11px;color:#64748b">File: ${fname}</div><table class="detail">`;
+  let html=`<div style="font-size:11px;color:#64748b">File: ${fname} <span class="badge">${props.Kode_Peta||props.KODE||'-'}</span></div><table class="detail">`;
   for(let k in props){
-    if(k.startsWith('_')) continue;
-    let v=props[k];
-    if(v===null||v==='') v='-';
+    if(k.startsWith('_')||k.startsWith('Shape_')) continue;
+    let v=props[k]; if(v===null||v==='') v='-';
     html+=`<tr><td>${k}</td><td>${v}</td></tr>`;
   }
   html+='</table>';
   document.getElementById('detail').innerHTML=html;
 }
+
 async function init(){
  let totalNGL=0,totalSRG=0,cNGL=0,cSRG=0;
- for(let f of FILES){
-  try{
-   let res=await fetch('wgs/'+f.name+'.geojson');
-   if(!res.ok) continue;
-   let gj=await res.json();
-   let lg=L.geoJSON(gj,{
-    style:{color:f.color,fillColor:f.fill,weight:f.weight||2,fillOpacity:f.fillOp!=undefined?f.fillOp:0.55,dashArray:f.dash||null},
-    onEachFeature:(feat,ly)=>{
-      let p=feat.properties||{};
-      let kode=p.Kode_Peta||p.KODE||p.kode||p.Kode||'-';
-      let nama=p.NAMA||p.Nama||p.Pemilik||'-';
-      let luas=p.LUAS_M2||p.Luas||p._luas_m2||0;
-      allFeatures.push({kode:kode.toString().toLowerCase(),nama:nama.toString().toLowerCase(),layer:ly,props:p,fname:f.name});
-      ly.bindTooltip(`${kode} - ${nama}`);
-      ly.on('click',()=>{showDetail(p,f.name);});
-      // hitung luas
-      if(f.name==='bidang_neglasari'){cNGL++; totalNGL+=parseFloat(luas)||0;}
-      if(f.name==='bidang_sarinagen'){cSRG++; totalSRG+=parseFloat(luas)||0;}
-    }
-   }).addTo(map);
-   groups[f.name]=lg;
-   let row=document.createElement('div');row.className='row';
-   row.innerHTML=`<span>${f.name.replaceAll('_',' ')} (${gj.features.length})</span><input type="checkbox" checked>`;
-   document.getElementById('list').appendChild(row);
-   row.querySelector('input').onchange=e=>{ if(e.target.checked) map.addLayer(lg); else map.removeLayer(lg); };
-  }catch(e){console.log('skip',f.name)}
+ let loadedGroups = {};
+ // siapkan container grup di kiri
+ GROUP_ORDER.forEach(g=>{
+   let div=document.createElement('div'); div.className='group'; div.id='g-'+g;
+   div.innerHTML=`<div class="group-head" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'block'"><span>${g}</span><span>▼</span></div><div class="group-body" id="body-${g}"></div>`;
+   document.getElementById('list').appendChild(div);
+   loadedGroups[g]=[];
+ });
+
+ let seenFiles = new Set();
+ for(let def of LAYER_DEFS){
+   if(def.alt && seenFiles.has(def.file)) continue; // jangan load double file yang sama kecuali label beda
+   let fname = def.file;
+   try{
+     let res=await fetch('wgs/'+fname+'.geojson');
+     if(!res.ok){ console.log('skip',fname); continue; }
+     let gj=await res.json();
+     seenFiles.add(fname);
+     
+     let lg=L.geoJSON(gj,{
+       style:{color:def.color,fillColor:def.fill,weight:def.weight||2,fillOpacity:def.fillOp!=undefined?def.fillOp:0.55,dashArray:def.dash||null},
+       onEachFeature:(feat,ly)=>{
+         let p=feat.properties||{};
+         let kode=p.Kode_Peta||p.KODE||p.kode||p.Kode||p.ID||'-';
+         let nama=p.NAMA||p.Nama||p.Pemilik||p.NAMA_PEMILIK||'-';
+         let luas=p.LUAS_M2||p.Luas||p._luas_m2||p.luas||0;
+         allFeatures.push({kode:kode.toString().toLowerCase(),nama:nama.toString().toLowerCase(),layer:ly,props:p,fname:def.label});
+         ly.bindTooltip(`${def.label}: ${kode} - ${nama}`,{sticky:true});
+         ly.on('click',()=>{
+           // highlight
+           allFeatures.forEach(f=>{ if(f.layer.setStyle) f.layer.setStyle({weight:2}); });
+           if(ly.setStyle) ly.setStyle({weight:4,color:'#000'});
+           showDetail(p,def.label);
+           document.getElementById('detail').scrollIntoView({behavior:'smooth'});
+         });
+         if(def.isBidang){
+           if(def.desa==='NGL'){ cNGL++; totalNGL+=parseFloat(luas)||0; boundsGroup.addLayer(ly); }
+           if(def.desa==='SRG'){ cSRG++; totalSRG+=parseFloat(luas)||0; boundsGroup.addLayer(ly); }
+         }
+       }
+     }).addTo(map);
+     groups[def.label]=lg;
+
+     // buat row checkbox di grup yang sesuai
+     let bodyId = 'body-'+def.group;
+     let bodyEl = document.getElementById(bodyId);
+     if(!bodyEl){ // fallback kalau group belum ada (pemilikan)
+       if(!document.getElementById('g-'+def.group)){
+         let div=document.createElement('div'); div.className='group'; div.id='g-'+def.group;
+         div.innerHTML=`<div class="group-head"><span>${def.group}</span><span>▼</span></div><div class="group-body" id="body-${def.group}"></div>`;
+         document.getElementById('list').appendChild(div);
+       }
+       bodyEl=document.getElementById('body-'+def.group);
+     }
+     let row=document.createElement('div');row.className='row';
+     row.innerHTML=`<label style="display:flex;align-items:center;cursor:pointer"><span class="dot" style="background:${def.fill};border-color:${def.color}"></span>${def.label} <small style="margin-left:6px;color:#64748b">(${gj.features.length})</small></label><input type="checkbox" checked>`;
+     bodyEl.appendChild(row);
+     row.querySelector('input').onchange=e=>{ if(e.target.checked) map.addLayer(lg); else map.removeLayer(lg); };
+
+   }catch(e){ console.log('error',def.file,e); }
  }
+
  document.getElementById('s-ngl').innerHTML=`${cNGL} bd<br>${(totalNGL/10000).toFixed(4)} ha`;
  document.getElementById('s-srg').innerHTML=`${cSRG} bd<br>${(totalSRG/10000).toFixed(4)} ha`;
  document.getElementById('s-all').innerHTML=`${cNGL+cSRG} bd<br>${((totalNGL+totalSRG)/10000).toFixed(4)} ha`;
  document.getElementById('status').innerText=`${cNGL+cSRG} bidang loaded`;
- try{map.fitBounds(L.featureGroup([groups['bidang_neglasari'],groups['bidang_sarinagen']]).getBounds(),{padding:[20,20]});}catch(e){}
- // search
+
+ if(boundsGroup.getLayers().length>0){
+   try{ map.fitBounds(boundsGroup.getBounds(),{padding:[20,20]}); }catch(e){}
+ }
+
+ // search kode / nama
  document.getElementById('searchBox').addEventListener('input',function(){
-   let q=this.value.toLowerCase(); if(q.length<2) return;
+   let q=this.value.toLowerCase().trim(); if(q.length<2) return;
    let found=allFeatures.find(x=>x.kode.includes(q)||x.nama.includes(q));
-   if(found){map.fitBounds(found.layer.getBounds(),{maxZoom:19}); found.layer.fire('click'); showDetail(found.props,found.fname);}
+   if(found){ map.fitBounds(found.layer.getBounds(),{maxZoom:19, padding:[50,50]}); found.layer.fire('click'); }
  });
 }
 init();
