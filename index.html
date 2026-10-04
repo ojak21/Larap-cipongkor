@@ -3,54 +3,67 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LARAP Cipongkor - Luas Fix</title>
+<title>LARAP Cipongkor - Filter Grup</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial;height:100vh;display:flex;flex-direction:column}
-.top{background:#1e2a5a;color:#fff;padding:10px 14px;display:flex;justify-content:space-between}
+.top{background:#1e2a5a;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
 .main{flex:1;display:flex;overflow:hidden}
-.left{width:360px;background:#f8fafc;border-right:1px solid #ddd;padding:10px;overflow:auto}
+.left{width:380px;background:#f8fafc;border-right:1px solid #ddd;padding:10px;overflow:auto}
 #map{flex:1;background:#e5e7eb}
 .right{width:380px;background:#fff;border-left:2px solid #e2e8f0;padding:12px;overflow:auto}
-.group{margin-bottom:10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px}
-.group-head{background:#e2e8f0;padding:8px 10px;font-weight:bold;font-size:11px;text-transform:uppercase;display:flex;justify-content:space-between;cursor:pointer}
-.group-body{padding:6px 10px}
+.group{margin-bottom:10px;background:#fff;border:2px solid #e2e8f0;border-radius:10px;overflow:hidden;transition:all 0.2s}
+.group.active{border-color:#1e2a5a;box-shadow:0 0 0 2px #1e2a5a22}
+.group-head{background:#e2e8f0;padding:10px 10px;font-weight:bold;font-size:11px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+.group.active .group-head{background:#1e2a5a;color:#fff}
+.group-head .title{flex:1;display:flex;align-items:center;gap:6px}
+.group-head .arrow{padding:4px 8px;background:#fff;color:#334155;border-radius:6px;font-size:10px;cursor:pointer}
+.group.active .group-head .arrow{background:#fff;color:#1e2a5a}
+.group-body{padding:6px 10px;display:block}
 .row{display:flex;justify-content:space-between;align-items:center;padding:8px 6px;border-bottom:1px solid #f1f5f9;font-size:12px;cursor:pointer;border-radius:6px}
 .row:hover{background:#f1f5f9}.row.active{background:#dbeafe}
-.dot{width:12px;height:12px;border-radius:2px;display:inline-block;margin-right:6px;border:1px solid #0003}
+.dot{width:12px;height:12px;border-radius:2px;display:inline-block;margin-right:6px;border:1px solid #0003;flex-shrink:0}
 input.search{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:8px 0}
 table.detail{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
 table.detail td{padding:5px 6px;border-bottom:1px solid #f1f5f9;word-break:break-word}
 table.detail td:first-child{font-weight:bold;width:38%;color:#475569}
 .card{padding:10px;border-radius:8px;font-size:12px;text-align:center}
-.btn{padding:6px 10px;background:#1e2a5a;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer}
+.btn{padding:7px 12px;background:#1e2a5a;color:#fff;border:none;border-radius:8px;font-size:11px;cursor:pointer;margin:2px}
+.btn.active{background:#16a34a}
+.hint{font-size:10px;color:#64748b;background:#f1f5f9;padding:6px 8px;border-radius:6px;margin:8px 0}
 </style>
 </head>
 <body>
-<div class="top"><b>LARAP Cipongkor - Luas SRG Fix</b><span id="status">Loading...</span></div>
+<div class="top"><b>LARAP Cipongkor - Filter Grup Otomatis</b><span id="status">Loading...</span></div>
 <div class="main">
 <div class="left">
-<input class="search" id="searchBox" placeholder="Cari Kode / Nama...">
-<div style="display:flex;gap:4px;margin:6px 0"><button class="btn" onclick="showAll()">Semua</button><button class="btn" onclick="showNGL()">NGL</button><button class="btn" onclick="showSRG()">SRG</button></div>
+<input class="search" id="searchBox" placeholder="Cari Kode / Nama / NIB...">
+<div class="hint">💡 Klik judul grup (misal: PEMILIKAN LAHAN) → peta hanya menampilkan grup itu, grup lain otomatis sembunyi. Klik SEMUA untuk tampilkan semua lagi.</div>
+<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0">
+<button class="btn active" id="btn-all" onclick="showAll()">SEMUA</button>
+<button class="btn" onclick="showNGL()">Hanya NGL</button>
+<button class="btn" onclick="showSRG()">Hanya SRG</button>
+</div>
 <div id="list"></div>
-<hr><b style="font-size:12px">Analisis Luas (Hitung Otomatis Geometri)</b>
+<hr><b style="font-size:12px">Analisis Luas</b>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
-<div class="card" style="background:#dcfce7"><small>Neglasari (NGL)</small><br><b id="s-ngl">0 bd<br>0 ha</b><br><small id="d-ngl" style="font-size:9px;color:#166534"></small></div>
-<div class="card" style="background:#ecfccb"><small>Sarinagen (SRG)</small><br><b id="s-srg">0 bd<br>0 ha</b><br><small id="d-srg" style="font-size:9px;color:#3f6212"></small></div>
+<div class="card" style="background:#dcfce7"><small>Neglasari</small><br><b id="s-ngl">0 bd<br>0 ha</b></div>
+<div class="card" style="background:#ecfccb"><small>Sarinagen</small><br><b id="s-srg">0 bd<br>0 ha</b></div>
 <div class="card" style="background:#fef9c3;grid-column:span 2"><small>Total</small><br><b id="s-all">0 bd<br>0 ha</b></div>
 </div>
 </div>
 <div id="map"></div>
 <div class="right">
 <b>DETAIL BIDANG</b>
-<div id="detail" style="margin-top:10px;color:#64748b;font-size:12px">Klik bidang di peta / list kiri...</div>
+<div id="detail" style="margin-top:10px;color:#64748b;font-size:12px">Klik judul grup di kiri untuk filter peta...</div>
 </div>
 </div>
 <script>
 var map=L.map('map').setView([-6.85,107.32],16);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:22}).addTo(map);
-var allFeatures=[], boundsGroup=L.featureGroup(), layerStore={};
+var allFeatures=[], boundsGroup=L.featureGroup(), layerStore={}, groupStore={};
+var activeGroup=null;
 
 const FILES = [
   {file:'area_proyek_cilanang', label:'area_proyek_cilanang', group:'area_proyek', color:'#ef4444', fill:'#ef4444', fillOp:0.05, weight:3, dash:'8,6'},
@@ -73,128 +86,157 @@ const FILES = [
 ];
 
 const GROUP_ORDER = ['area_proyek','tanah_negara','bbws','penggunaan_lahan','bangunan_terdampak','pemilikan_lahan'];
+const GROUP_LABELS = {
+  'area_proyek':'Area Proyek',
+  'tanah_negara':'Tanah Negara',
+  'bbws':'BBWS',
+  'penggunaan_lahan':'Penggunaan Lahan & Fasum',
+  'bangunan_terdampak':'Bangunan Terdampak',
+  'pemilikan_lahan':'Pemilikan Lahan'
+};
 
-// Hitung luas geodesik dari LatLngs (akurasi cukup untuk ha)
 function geodesicArea(latlngs){
-  let area=0;
-  let len=latlngs.length;
-  if(len<3) return 0;
-  for(let i=0;i<len;i++){
-    let p1=latlngs[i], p2=latlngs[(i+1)%len];
-    // rumus L.GeometryUtil.geodesicArea Leaflet
-    area += (p2.lng - p1.lng) * (2 + Math.sin(p1.lat*Math.PI/180) + Math.sin(p2.lat*Math.PI/180));
-  }
-  area = area * 6378137 * 6378137 / 2.0;
-  return Math.abs(area); // m2
+  let area=0; let len=latlngs.length; if(len<3) return 0;
+  for(let i=0;i<len;i++){let p1=latlngs[i], p2=latlngs[(i+1)%len]; area += (p2.lng - p1.lng) * (2 + Math.sin(p1.lat*Math.PI/180) + Math.sin(p2.lat*Math.PI/180));}
+  area = area * 6378137 * 6378137 / 2.0; return Math.abs(area);
 }
 function getLayerArea(layer){
   try{
     if(layer.getLatLngs){
       let latlngs = layer.getLatLngs();
-      // polygon bisa nested
       let flat = Array.isArray(latlngs[0][0]) ? latlngs[0] : latlngs;
-      // kalau multi
       if(Array.isArray(flat[0]) && Array.isArray(flat[0][0])){
-        let total=0;
-        latlngs.forEach(poly=>{
-          let ring = Array.isArray(poly[0]) ? poly[0] : poly;
-          total+=geodesicArea(ring);
-        });
-        return total;
-      } else {
-        return geodesicArea(flat);
-      }
+        let total=0; latlngs.forEach(poly=>{let ring = Array.isArray(poly[0]) ? poly[0] : poly; total+=geodesicArea(ring);}); return total;
+      } else { return geodesicArea(flat); }
     }
-  }catch(e){ return 0; }
-  return 0;
+  }catch(e){return 0;} return 0;
 }
 function getLuasFromProps(props){
-  // cari field luas dengan berbagai variasi nama (case-insensitive)
-  let keys = Object.keys(props);
   let candidates = ['LUAS_M2','Luas_M2','luas_m2','LUAS','Luas','luas','Luas (m2)','LUAS_M2_','Shape_Area'];
-  for(let c of candidates){
-    if(props[c]!==undefined && props[c]!==null && props[c]!==''){
-      let v=parseFloat(props[c]); if(!isNaN(v) && v>0) return v;
-    }
-  }
-  // cari yang mengandung kata luas
-  for(let k of keys){
-    if(k.toLowerCase().includes('luas')){
-      let v=parseFloat(props[k]); if(!isNaN(v) && v>0) return v;
-    }
-  }
+  for(let c of candidates){ if(props[c]!==undefined){ let v=parseFloat(props[c]); if(!isNaN(v)&&v>0) return v; } }
+  for(let k in props){ if(k.toLowerCase().includes('luas')){ let v=parseFloat(props[k]); if(!isNaN(v)&&v>0) return v; } }
   return null;
 }
-
-function showDetail(p,fname,calculatedArea){
-  let html=`<div style="font-size:11px;color:#64748b">File: <b>${fname}</b> | Luas hitung: <b>${(calculatedArea/10000).toFixed(4)} ha (${calculatedArea.toFixed(1)} m²)</b></div><table class="detail">`;
-  for(let k in p){
-    if(k.startsWith('_')||k.startsWith('Shape_')) continue;
-    let v=p[k]; if(v===null||v==='') v='-';
-    html+=`<tr><td>${k}</td><td>${v}</td></tr>`;
-  }
-  html+=`<tr style="background:#fef9c3"><td>LUAS_HITUNG_M2</td><td>${calculatedArea.toFixed(2)} m²</td></tr>`;
-  html+=`<tr style="background:#fef9c3"><td>LUAS_HITUNG_HA</td><td>${(calculatedArea/10000).toFixed(4)} ha</td></tr>`;
-  html+='</table>';
+function showDetail(p,fname,area){
+  let html=`<div style="font-size:11px;color:#64748b">File: <b>${fname}</b> | <b>${(area/10000).toFixed(4)} ha</b></div><table class="detail">`;
+  for(let k in p){ if(k.startsWith('_')||k.startsWith('Shape_')) continue; let v=p[k]; if(v===null||v==='') v='-'; html+=`<tr><td>${k}</td><td>${v}</td></tr>`; }
+  html+=`<tr style="background:#fef9c3"><td>LUAS_HITUNG</td><td>${area.toFixed(1)} m² / ${(area/10000).toFixed(4)} ha</td></tr></table>`;
   document.getElementById('detail').innerHTML=html;
 }
 
-function showAll(){Object.values(layerStore).forEach(l=>map.addLayer(l));document.querySelectorAll('.row input').forEach(c=>c.checked=true);}
-function showNGL(){Object.entries(layerStore).forEach(([k,l])=>{if(k.toLowerCase().includes('ngl')||k.includes('area')||k.includes('batas'))map.addLayer(l);else map.removeLayer(l);});}
-function showSRG(){Object.entries(layerStore).forEach(([k,l])=>{if(k.toLowerCase().includes('srg')||k.includes('area')||k.includes('batas'))map.addLayer(l);else map.removeLayer(l);});}
+// FILTER LOGIC - INI INTINYA
+function filterByGroup(groupName){
+  // kalau klik grup yang sama lagi -> tampilkan semua
+  if(activeGroup===groupName){
+    showAll();
+    return;
+  }
+  activeGroup=groupName;
+  // update UI grup aktif
+  document.querySelectorAll('.group').forEach(g=>{g.classList.remove('active');});
+  document.getElementById('g-'+groupName)?.classList.add('active');
+  document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+  
+  // sembunyikan semua layer
+  Object.entries(layerStore).forEach(([label, layer])=>{
+    map.removeLayer(layer);
+  });
+  // tampilkan hanya yang grupnya sesuai
+  let shownLayers=[];
+  Object.entries(layerStore).forEach(([label, layer])=>{
+    // cari def dari FILES
+    let def = FILES.find(f=>f.label===label);
+    if(def && def.group===groupName){
+      map.addLayer(layer);
+      shownLayers.push(layer);
+    }
+  });
+  // update checkbox
+  document.querySelectorAll('.row').forEach(row=>{
+    let def = FILES.find(f=>f.label===row.dataset.label);
+    let chk=row.querySelector('input');
+    if(def && def.group===groupName){ chk.checked=true; row.style.opacity='1'; }
+    else { chk.checked=false; row.style.opacity='0.3'; }
+  });
+  // zoom ke grup tersebut
+  let groupBounds = L.featureGroup(shownLayers);
+  if(shownLayers.length>0){
+    try{ map.fitBounds(groupBounds.getBounds(),{padding:[30,30],maxZoom:18}); }catch{}
+  }
+  document.getElementById('status').innerText=`Filter: ${GROUP_LABELS[groupName]} (${shownLayers.length} layer)`;
+  document.getElementById('detail').innerHTML=`<div style="padding:8px;background:#dbeafe;border-radius:8px;font-size:12px">🔍 Filter aktif: <b>${GROUP_LABELS[groupName]}</b><br>Menampilkan ${shownLayers.length} layer. Klik SEMUA untuk tampilkan semua lagi.<br><small>Grup lain otomatis tersembunyi</small></div>`;
+}
+
+function showAll(){
+  activeGroup=null;
+  document.querySelectorAll('.group').forEach(g=>g.classList.remove('active'));
+  document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-all').classList.add('active');
+  Object.values(layerStore).forEach(l=>map.addLayer(l));
+  document.querySelectorAll('.row').forEach(row=>{row.querySelector('input').checked=true; row.style.opacity='1';});
+  if(boundsGroup.getLayers().length>0){try{map.fitBounds(boundsGroup.getBounds(),{padding:[30,30]})}catch{}}
+  document.getElementById('status').innerText=`${Object.keys(layerStore).length} layer - Semua tampil`;
+  document.getElementById('detail').innerHTML=`<div style="padding:8px;background:#fef9c3;border-radius:8px;font-size:12px">Menampilkan semua layer (17 file). Klik judul grup di kiri untuk filter.</div>`;
+}
+function showNGL(){ 
+  activeGroup='ngl';
+  document.querySelectorAll('.group').forEach(g=>g.classList.remove('active'));
+  Object.entries(layerStore).forEach(([k,l])=>{if(k.toLowerCase().includes('ngl')||k.includes('area')||k.includes('batas')){map.addLayer(l);}else{map.removeLayer(l);}});
+  document.querySelectorAll('.row').forEach(row=>{let isNGL=row.dataset.label.toLowerCase().includes('ngl')||row.dataset.label.includes('area')||row.dataset.label.includes('batas'); row.querySelector('input').checked=isNGL; row.style.opacity=isNGL?'1':'0.3';});
+}
+function showSRG(){ 
+  activeGroup='srg';
+  document.querySelectorAll('.group').forEach(g=>g.classList.remove('active'));
+  Object.entries(layerStore).forEach(([k,l])=>{if(k.toLowerCase().includes('srg')||k.includes('area')||k.includes('batas')){map.addLayer(l);}else{map.removeLayer(l);}});
+  document.querySelectorAll('.row').forEach(row=>{let isSRG=row.dataset.label.toLowerCase().includes('srg')||row.dataset.label.includes('area')||row.dataset.label.includes('batas'); row.querySelector('input').checked=isSRG; row.style.opacity=isSRG?'1':'0.3';});
+}
 
 async function init(){
   GROUP_ORDER.forEach(g=>{
-    let d=document.createElement('div');d.className='group';d.id='g-'+g;
-    d.innerHTML=`<div class="group-head"><span>${g.replaceAll('_',' ')}</span><span>▼</span></div><div class="group-body" id="body-${g}"></div>`;
-    document.getElementById('list').appendChild(d);
-    d.querySelector('.group-head').onclick=()=>{let b=document.getElementById('body-'+g);b.style.display=b.style.display==='none'?'block':'none';};
+    let div=document.createElement('div'); div.className='group'; div.id='g-'+g;
+    div.innerHTML=`<div class="group-head"><div class="title" data-group="${g}">📁 ${GROUP_LABELS[g]||g} <small style="font-weight:normal;opacity:0.7" id="count-${g}"></small></div><div class="arrow" data-group="${g}">▼</div></div><div class="group-body" id="body-${g}"></div>`;
+    document.getElementById('list').appendChild(div);
+    // klik judul = FILTER
+    div.querySelector('.title').onclick=()=>{ filterByGroup(g); };
+    // klik panah = collapse
+    div.querySelector('.arrow').onclick=(e)=>{ e.stopPropagation(); let body=document.getElementById('body-'+g); let arrow=e.target; if(body.style.display==='none'){body.style.display='block'; arrow.textContent='▼';} else {body.style.display='none'; arrow.textContent='▶';} };
   });
+
   let cNGL=0,cSRG=0,totalNGL=0,totalSRG=0,loaded=0;
-  let detailNGL=[], detailSRG=[];
   for(let def of FILES){
     try{
-      let res=await fetch('wgs/'+def.file+'.geojson');
-      if(!res.ok) continue;
+      let res=await fetch('wgs/'+def.file+'.geojson'); if(!res.ok) continue;
       let gj=await res.json();
       let lg=L.geoJSON(gj,{
         style:{color:def.color,fillColor:def.fill,weight:def.weight||2,fillOpacity:def.fillOp,dashArray:def.dash||null},
         onEachFeature:(feat,ly)=>{
-          let p=feat.properties||{};
-          let kode=p.Kode_Peta||p.KODE||p.kode||p.NIB||'-';
-          let nama=p.NAMA||p.Nama||p.PEMILIK||p.Pemilik||'-';
-          // hitung luas
-          let luasProp = getLuasFromProps(p);
-          let luasCalc = getLayerArea(ly);
-          let luasFinal = luasProp && luasProp>0 ? luasProp : luasCalc;
-          if(luasFinal===0) luasFinal = luasCalc; // fallback
-          // simpan
-          ly._luasM2 = luasFinal;
-          allFeatures.push({kode:kode.toString().toLowerCase(),nama:nama.toString().toLowerCase(),layer:ly,props:p,fname:def.label,luas:luasFinal});
+          let p=feat.properties||{}; let kode=p.Kode_Peta||p.KODE||p.kode||p.NIB||'-'; let nama=p.NAMA||p.Nama||p.PEMILIK||p.Pemilik||'-';
+          let luasProp=getLuasFromProps(p); let luasCalc=getLayerArea(ly); let luasFinal=luasProp&&luasProp>0?luasProp:luasCalc; if(luasFinal===0) luasFinal=luasCalc;
+          ly._luasM2=luasFinal;
+          allFeatures.push({kode:kode.toString().toLowerCase(),nama:nama.toString().toLowerCase(),layer:ly,props:p,fname:def.label,luas:luasFinal,group:def.group});
           ly.bindTooltip(`${def.label}: ${kode} - ${(luasFinal/10000).toFixed(4)} ha`,{sticky:true});
           ly.on('click',()=>{showDetail(p,def.label,luasFinal);});
           boundsGroup.addLayer(ly);
-          if(def.desa==='NGL'){cNGL++;totalNGL+=luasFinal;detailNGL.push(luasFinal);}
-          else if(def.desa==='SRG'){cSRG++;totalSRG+=luasFinal;detailSRG.push(luasFinal);}
+          if(def.desa==='NGL'){cNGL++;totalNGL+=luasFinal;} else if(def.desa==='SRG'){cSRG++;totalSRG+=luasFinal;}
         }
       }).addTo(map);
-      layerStore[def.label]=lg;loaded++;
+      layerStore[def.label]=lg;
+      if(!groupStore[def.group]) groupStore[def.group]=[]; groupStore[def.group].push(def.label);
+      loaded++;
       let body=document.getElementById('body-'+def.group);
       let row=document.createElement('div');row.className='row';row.dataset.label=def.label;
-      let isNGL=def.label.toLowerCase().includes('ngl');
-      row.style.borderLeft=isNGL?'4px solid #16a34a':'4px solid #65a30d';
       row.innerHTML=`<div style="display:flex;align-items:center;flex:1"><span class="dot" style="background:${def.fill};border-color:${def.color}"></span><span>${def.label} <small style="color:#64748b">(${gj.features?.length||0})</small></span></div><input type="checkbox" checked>`;
       body.appendChild(row);
-      row.onclick=(e)=>{if(e.target.tagName==='INPUT')return;document.querySelectorAll('.row').forEach(r=>r.classList.remove('active'));row.classList.add('active');try{map.fitBounds(lg.getBounds(),{maxZoom:19,padding:[30,30]})}catch{};};
-      row.querySelector('input').onchange=(e)=>{e.stopPropagation();if(e.target.checked)map.addLayer(lg);else map.removeLayer(lg);};
+      row.onclick=(e)=>{if(e.target.tagName==='INPUT')return; document.querySelectorAll('.row').forEach(r=>r.classList.remove('active')); row.classList.add('active'); try{map.fitBounds(lg.getBounds(),{maxZoom:19,padding:[30,30]})}catch{}; if(gj.features[0]){let p=gj.features[0].properties; let ly=lg.getLayers()[0]; let area=ly?._luasM2||getLayerArea(ly)||0; showDetail(p,def.label,area);} };
+      row.querySelector('input').onchange=(e)=>{e.stopPropagation(); if(e.target.checked) map.addLayer(lg); else map.removeLayer(lg);};
     }catch(e){console.log('error',def.file,e);}
   }
+  // update count per grup
+  GROUP_ORDER.forEach(g=>{ let count=groupStore[g]?.length||0; let el=document.getElementById('count-'+g); if(el) el.textContent=`(${count})`; });
   document.getElementById('s-ngl').innerHTML=`${cNGL} bd<br>${(totalNGL/10000).toFixed(4)} ha`;
   document.getElementById('s-srg').innerHTML=`${cSRG} bd<br>${(totalSRG/10000).toFixed(4)} ha`;
   document.getElementById('s-all').innerHTML=`${cNGL+cSRG} bd<br>${((totalNGL+totalSRG)/10000).toFixed(4)} ha`;
-  document.getElementById('d-ngl').innerText=`Hitung geometri: ${detailNGL.length} bidang`;
-  document.getElementById('d-srg').innerText=`Hitung geometri: ${detailSRG.length} bidang - FIXED`;
-  document.getElementById('status').innerText=`${loaded} file - Luas SRG FIX`;
+  document.getElementById('status').innerText=`${loaded} layer - Klik judul grup untuk filter`;
   if(boundsGroup.getLayers().length>0){try{map.fitBounds(boundsGroup.getBounds(),{padding:[30,30]})}catch{}}
   document.getElementById('searchBox').addEventListener('input',function(){let q=this.value.toLowerCase().trim();if(q.length<2)return;let f=allFeatures.find(x=>x.kode.includes(q)||x.nama.includes(q));if(f){map.fitBounds(f.layer.getBounds(),{maxZoom:19,padding:[50,50]});f.layer.fire('click');}});
 }
